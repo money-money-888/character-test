@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEARU 人格香气匹配测试</title>
+    <style>
+        :root { --primary: #8e7dbe; --accent: #d4a373; --text: #4a4a4a; --bg: #fdfbf7; }
+        body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 20px; margin: 0; line-height: 1.6; }
+        .container { background: white; width: 100%; max-width: 600px; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        .header h1 { font-size: 24px; letter-spacing: 3px; color: var(--primary); margin: 0; }
+        .progress-box { width: 100%; height: 4px; background: #f0f0f0; border-radius: 2px; margin-bottom: 30px; }
+        #inner-progress { width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease; }
+        .q-text { font-size: 19px; font-weight: bold; margin-bottom: 25px; color: #333; }
+        .option-btn { 
+            display: block; width: 100%; padding: 18px; margin-bottom: 15px; 
+            text-align: left; background: white; border: 1px solid #e0e0e0; 
+            border-radius: 12px; cursor: pointer; transition: 0.2s; font-size: 16px;
+        }
+        .option-btn:hover { border-color: var(--primary); background: #f9f8ff; color: var(--primary); }
+        #result { display: none; animation: fadeIn 0.8s ease; }
+        .perfume-result { 
+            margin: 30px 0; padding: 25px; background: #fdf9f4; border-radius: 15px; 
+            border: 1px solid #faedcd; text-align: left; 
+        }
+        .perfume-name { font-size: 28px; color: var(--accent); font-weight: bold; margin-bottom: 10px; border-left: 5px solid var(--accent); padding-left: 15px; }
+        .stat-item { margin-bottom: 18px; }
+        .stat-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; align-items: flex-end; }
+        .dim-name { font-weight: bold; color: #333; font-size: 15px; }
+        .dim-info { text-align: right; color: #888; flex: 1; margin-left: 10px; }
+        .related-perfumes { display: block; font-size: 11px; color: var(--accent); margin-top: 2px; }
+        .stat-bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }
+        .stat-fill { height: 100%; background: var(--primary); width: 0%; transition: width 1.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="quiz-ui">
+        <div class="header"><h1>人格香气匹配</h1></div>
+        <div class="progress-box"><div id="inner-progress"></div></div>
+        <div id="q-content">
+            <div id="q-text" class="q-text"></div>
+            <div id="options"></div>
+        </div>
+    </div>
+
+    <div id="result">
+        <div class="header"><h1>测评报告</h1></div>
+        <div class="perfume-result">
+            <p style="margin:0; color:#888; font-size:14px;">您的专属契合香：</p>
+            <div class="perfume-name" id="res-perfume"></div>
+            <p id="res-desc" style="color:#555; font-size:15px;"></p>
+        </div>
+        
+        <p style="font-weight:bold; margin: 30px 0 15px 0; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 5px;">维度占比与香气图谱：</p>
+        <div id="dimension-stats"></div>
+        
+        <button onclick="location.reload()" style="margin-top:30px; width:100%; padding:15px; border-radius:30px; border:none; background:var(--primary); color:white; cursor:pointer; font-size:16px;">重新测评</button>
+    </div>
+</div>
+
+<script>
+    const questions = [
+        { q: "1. 周末朋友临时约你，但你有点累，你通常？", a: {t:"去，说不定玩起来就有劲了", d:"外向探索"}, b: {t:"婉拒，在家休息更舒服", d:"内向沉淀"} },
+        { q: "2. 看到一本新书，你更可能因为什么翻开它？", a: {t:"封面设计或书名很有感觉", d:"灵感直觉"}, b: {t:"朋友推荐或评分很高", d:"务实细节"} },
+        { q: "3. 做决定时，你更常听从？", a: {t:"“我心里觉得…”", d:"情感共鸣"}, b: {t:"“我分析下来…”", d:"逻辑理性"} },
+        { q: "4. 你的房间或办公桌通常是？", a: {t:"有点乱，但我知道东西在哪", d:"随性开放"}, b: {t:"整洁有序，东西有固定位置", d:"计划秩序"} },
+        { q: "5. 旅行前，你会？", a: {t:"做个大致清单，随机应变", d:"随性开放"}, b: {t:"查好攻略，安排好每天行程", d:"计划秩序"} },
+        { q: "6. 遇到不开心的事，你更倾向？", a: {t:"找朋友聊聊", d:"外向探索"}, b: {t:"自己消化或做点别的事转移注意", d:"内向沉淀"} },
+        { q: "7. 你更喜欢哪种聚会？", a: {t:"一群熟人热热闹闹", d:"外向探索"}, b: {t:"两三个好友深度聊天", d:"内向沉淀"} },
+        { q: "8. 别人通常怎么评价你？", a: {t:"挺有想法/挺有趣的", d:"灵感直觉"}, b: {t:"挺靠谱/挺踏实的", d:"务实细节"} },
+        { q: "9. 看电影时，你更容易被什么打动？", a: {t:"动人的情感或美丽的画面", d:"艺术诗意"}, b: {t:"巧妙的逻辑或深刻的主题", d:"逻辑理性"} },
+        { q: "10. 面对一个新任务，你更习惯？", a: {t:"先上手试试，边做边想", d:"随性开放"}, b: {t:"先想清楚步骤，再开始做", d:"计划秩序"} },
+        { q: "11. 你觉得自己更像？", a: {t:"夏天的风，自由随性", d:"自由独特"}, b: {t:"冬天的太阳，稳定温暖", d:"责任成就"} },
+        { q: "12. 在团队中，你更常是？", a: {t:"提出新点子的人", d:"灵感直觉"}, b: {t:"完善和执行点子的人", d:"务实细节"} },
+        { q: "13. 压力大的时候，你通常？", a: {t:"需要倾诉或释放（运动、玩乐）", d:"外向探索"}, b: {t:"需要独处或安静（看书、听歌）", d:"内向沉淀"} },
+        { q: "14. 你更容易注意到？", a: {t:"别人的情绪变化", d:"情感共鸣"}, b: {t:"事情的细节漏洞", d:"逻辑理性"} },
+        { q: "15. 你更享受哪种时刻？", a: {t:"和大家一起庆祝成功", d:"外向探索"}, b: {t:"独自完成一项挑战", d:"内向沉淀"} },
+        { q: "16. 选择餐厅时，你更可能？", a: {t:"尝试没去过的新店", d:"冒险精神"}, b: {t:"去熟悉的、口味有保障的老地方", d:"安定稳重"} },
+        { q: "17. 你认为自己更擅长？", a: {t:"鼓励和安慰他人", d:"情感共鸣"}, b: {t:"提供实际的建议和帮助", d:"逻辑理性"} },
+        { q: "18. 空闲时，你更喜欢？", a: {t:"发展点新爱好（比如画画、音乐）", d:"艺术诗意"}, b: {t:"精进已有的技能（比如烹饪、某项运动）", d:"务实细节"} },
+        { q: "19. 你更看重朋友的？", a: {t:"真诚和懂我", d:"情感共鸣"}, b: {t:"可靠和守信", d:"逻辑理性"} },
+        { q: "20. 对于“未来”，你更常觉得？", a: {t:"充满可能，想去探索", d:"冒险精神"}, b: {t:"需要规划，才有安全感", d:"安定稳重"} },
+        { q: "21. 你更愿意被称为？", a: {t:"一个有创意的人", d:"灵感直觉"}, b: {t:"一个有担当的人", d:"责任成就"} },
+        { q: "22. 学习新东西，你更喜欢？", a: {t:"自由探索，找到兴趣点", d:"自由独特"}, b: {t:"有系统的课程和指导", d:"计划秩序"} },
+        { q: "23. 你觉得哪种能力更难得？", a: {t:"感受美的能力", d:"艺术诗意"}, b: {t:"解决问题的能力", d:"务实细节"} },
+        { q: "24. 面对不同意见，你通常？", a: {t:"乐于了解，觉得挺有意思", d:"随性开放"}, b: {t:"坚持自己认为对的观点", d:"坚韧冷静"} },
+        { q: "25. 你更喜欢哪种天气？", a: {t:"突然的暴雨，酣畅淋漓", d:"自由独特"}, b: {t:"持续的晴天，明朗温暖", d:"安定稳重"} },
+        { q: "26. 你认为爱情更像？", a: {t:"一首诗，需要灵感与心动", d:"艺术诗意"}, b: {t:"一座建筑，需要用心经营", d:"责任成就"} },
+        { q: "27. 家庭决策中，你更常扮演？", a: {t:"调和气氛的“粘合剂”", d:"情感共鸣"}, b: {t:"拿主意的“定心丸”", d:"权威掌控"} },
+        { q: "28. 你更容易为什么事情感到自豪？", a: {t:"坚持做了自己喜欢的事", d:"自由独特"}, b: {t:"完成了自己承诺的责任", d:"责任成就"} },
+        { q: "29. 你更喜欢哪种故事？", a: {t:"充满想象力的奇幻冒险", d:"灵感直觉"}, b: {t:"贴近生活的真实成长", d:"务实细节"} },
+        { q: "30. 你认为理想的自己，身上应该有？", a: {t:"让人想靠近的温暖光芒", d:"快乐感染"}, b: {t:"让人感到安心的沉稳力量", d:"沉稳可靠"} }
+    ];
+
+    const perfumes = [
+        { name: "乱心奇士", tags: ["外向探索", "灵感直觉", "情感共鸣", "快乐感染"], desc: "像一阵不按常理出牌的微风，充满能量与惊喜。" },
+        { name: "天外旅人", tags: ["冒险精神", "灵感直觉", "自由独特", "随性开放"], desc: "灵魂在路上，永远对未知充满浪漫的探索欲。" },
+        { name: "不败自由人", tags: ["自由独特", "快乐感染", "外向探索", "随性开放"], desc: "不被定义的自由，活得灿烂且真实。" },
+        { name: "新引力者", tags: ["权威掌控", "逻辑理性", "责任成就", "沉稳可靠"], desc: "自带引力场，冷静睿智，是掌控全局的智者。" },
+        { name: "戎装木兰香", tags: ["坚韧冷静", "责任成就", "安定稳重", "沉稳可靠"], desc: "外柔内刚，坚韧不拔，是乱世中宁静的守护。" },
+        { name: "天后", tags: ["权威掌控", "责任成就", "艺术诗意", "逻辑理性"], desc: "高贵且深刻，在逻辑与美学之间建立自己的王国。" },
+        { name: "清照沉香梦", tags: ["艺术诗意", "情感共鸣", "灵感直觉", "内向沉淀"], desc: "清冷幽远，是文字与灵魂深处的低语。" },
+        { name: "徽音雅韵", tags: ["艺术诗意", "责任成就", "务实细节", "沉稳可靠"], desc: "温润如玉，将责任感化作一种极致的东方美学。" },
+        { name: "告白诗人", tags: ["情感共鸣", "艺术诗意", "内向沉淀", "自由独特"], desc: "浪漫而清醒，永远在为生命中的美好低吟浅唱。" }
+    ];
+
+    let currentQ = 0;
+    let scores = {};
+
+    function start() { showQuestion(); }
+
+    function showQuestion() {
+        const q = questions[currentQ];
+        document.getElementById('inner-progress').style.width = ((currentQ / 30) * 100) + "%";
+        document.getElementById('q-text').innerText = q.q;
+        let opts = [{ text: q.a.t, dim: q.a.d }, { text: q.b.t, dim: q.b.d }];
+        opts.sort(() => Math.random() - 0.5);
+        let html = "";
+        opts.forEach(o => { html += `<button class="option-btn" onclick="next('${o.dim}')">${o.text}</button>`; });
+        document.getElementById('options').innerHTML = html;
+    }
+
+    function next(dim) {
+        scores[dim] = (scores[dim] || 0) + 1;
+        currentQ++;
+        if (currentQ < 30) { showQuestion(); } else { showResult(); }
+    }
+
+    function showResult() {
+        document.getElementById('quiz-ui').classList.add('hidden');
+        document.getElementById('result').style.display = 'block';
+
+        // 计算哪些香水包含该维度
+        function getPerfumesByDim(dim) {
+            return perfumes.filter(p => p.tags.includes(dim)).map(p => p.name).join('、');
+        }
+
+        let statsHtml = "";
+        const allDims = [...new Set(questions.flatMap(q => [q.a.d, q.b.d]))];
+        allDims.sort((a,b) => (scores[b]||0) - (scores[a]||0));
+
+        allDims.forEach(d => {
+            const count = scores[d] || 0;
+            const percent = Math.round((count / 30) * 100);
+            const related = getPerfumesByDim(d);
+            if (count > 0) {
+                statsHtml += `
+                    <div class="stat-item">
+                        <div class="stat-label">
+                            <span class="dim-name">${d}</span>
+                            <span class="dim-info">${percent}%
+                                <span class="related-perfumes">关联：${related}</span>
+                            </span>
+                        </div>
+                        <div class="stat-bar"><div class="stat-fill" style="width:${percent}%"></div></div>
+                    </div>
+                `;
+            }
+        });
+        document.getElementById('dimension-stats').innerHTML = statsHtml;
+
+        let bestMatch = perfumes[0];
+        let maxScore = -1;
+        perfumes.forEach(p => {
+            let matchScore = 0;
+            p.tags.forEach(t => { matchScore += (scores[t] || 0); });
+            if (matchScore > maxScore) { maxScore = matchScore; bestMatch = p; }
+        });
+
+        document.getElementById('res-perfume').innerText = "「" + bestMatch.name + "」";
+        document.getElementById('res-desc').innerText = bestMatch.desc;
+    }
+
+    start();
+</script>
+
+</body>
+</html>
